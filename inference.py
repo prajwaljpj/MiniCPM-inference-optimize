@@ -6,7 +6,7 @@ import soundfile as sf
 import os
 
 
-HF_TOKEN = "<your-huggingface-token>"
+HF_TOKEN = os.getenv("HF_TOKEN")
 
 
 MODEL_REVISION = "9da79acdd8906c7007242cbd09ed014d265d281a"
