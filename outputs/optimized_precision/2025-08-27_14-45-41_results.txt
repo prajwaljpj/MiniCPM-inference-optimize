@@ -1,0 +1,31 @@
+Results from run at 2025-08-27 14:45:41
+Result 1: I'm fine, thank you!
+-Time to first byte: 1.3652s
+-Realtime Factor: 0.8244x
+-Total time: 5.9095s
+-Audio length: 7.1680s
+Result 2: What's your name?
+-Time to first byte: 1.3657s
+-Realtime Factor: 0.8285x
+-Total time: 3.3227s
+-Audio length: 4.0107s
+Result 3: My name is John Doe
+-Time to first byte: 1.4045s
+-Realtime Factor: 0.8473x
+-Total time: 7.8987s
+-Audio length: 9.3227s
+Result 4: What's your favorite color?
+-Time to first byte: 1.3085s
+-Realtime Factor: 0.8601x
+-Total time: 4.9726s
+-Audio length: 5.7813s
+Result 5: My favorite color is blue
+-Time to first byte: 1.4212s
+-Realtime Factor: 0.7730x
+-Total time: 11.4274s
+-Audio length: 14.7840s
+Result 6: What's your favorite food?
+-Time to first byte: 1.3747s
+-Realtime Factor: 0.7704x
+-Total time: 10.0586s
+-Audio length: 13.0560s
