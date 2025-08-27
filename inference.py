@@ -39,7 +39,6 @@ minicpm_inference_engine_image = (
         "torchvision==0.18.1",
         "huggingface_hub[hf_transfer]==0.30.1",
         "huggingface_hub[hf_xet]",
-        # "transformers==4.45.1",
         "transformers==4.44.2",
         "onnxruntime==1.20.1",
         "scipy==1.15.2",
@@ -49,7 +48,6 @@ minicpm_inference_engine_image = (
         "sentencepiece==0.2.0",
         "vector-quantize-pytorch==1.18.5",
         "vocos==0.1.0",
-        # "accelerate",
         "timm==0.9.10",
         "soundfile==0.12.1",
         "librosa==0.9.0",
@@ -71,12 +69,8 @@ minicpm_inference_engine_image = (
         gpu="A10G",
     )
     .run_commands('python -c "import torch; print(torch.version.cuda)"')
-    # Install general AI dependencies
-    # .pip_install("accelerate>=0.30.0", gpu="A10G")
-    # .pip_install("bitsandbytes", gpu="A10G")
     # .run_commands("accelerate config default")
     # .run_commands("accelerate env")
-    # .run_commands("python -m bitsandbytes")
     .run_commands(
         "git clone https://github.com/RanchiZhao/AutoGPTQ.git",
         "cd AutoGPTQ && git checkout minicpmo",
@@ -84,7 +78,6 @@ minicpm_inference_engine_image = (
         "cd AutoGPTQ && pip install -vvv --no-build-isolation .",
         gpu="A10G",
     )
-    # .run_commands("cd ..")
     # .run_commands(
     #     "git clone https://github.com/huggingface/accelerate",
     #     "cd accelerate && git checkout v1.3.0",
@@ -183,38 +176,6 @@ class MinicpmInferenceEngine:
 
         return all_results
 
-        # audio_data = []
-        # start_time = time.perf_counter()
-        # time_to_first_byte = None
-        # total_time = None
-        # for item in self.model.run_inference([text]):
-        #     if item is None:
-        #         break
-        #     if isinstance(item, str):
-        #         print(f"Got text from MiniCPM: {text}")
-        #     if isinstance(item, AudioData):
-        #         assert item.sample_rate == 24000
-
-        #         if time_to_first_byte is None:
-        #             time_to_first_byte = time.perf_counter() - start_time
-
-        #         audio_data.append(item.array)
-
-        # total_time = time.perf_counter() - start_time
-
-        # if len(audio_data) == 0:
-        #     raise ValueError("No audio data received")
-
-        # full_audio = np.concatenate(audio_data)
-
-        # return {
-        #     "time_to_first_byte": time_to_first_byte,
-        #     "total_time": total_time,
-        #     "audio_array": full_audio,
-        #     "sample_rate": 24000,
-        #     "text": text,
-        # }
-
 
 @app.local_entrypoint()
 def main():
@@ -234,16 +195,6 @@ def main():
         "What's your favorite food?",
     ]
     results = engine.run.remote(texts)
-    # for text in [
-    #     "I'm fine, thank you!",
-    #     "What's your name?",
-    #     "My name is John Doe",
-    #     "What's your favorite color?",
-    #     "My favorite color is blue",
-    #     "What's your favorite food?",
-    # ]:
-    #     result = engine.run.remote(text)
-    #     results.append(result)
 
     PARENT_DIR = Path(__file__).parent
 

@@ -65,77 +65,7 @@ class MiniCPMo:
         #     llm_int8_threshold=6.0,  # Outlier threshold in the llm.int8() algorithm, used to determine whether to perform quantization
         # )
 
-        # print("Initialized bitsbytes conf")
-        # with init_empty_weights():
-        #     model = AutoModel.from_pretrained(
-        #         "openbmb/MiniCPM-o-2_6",
-        #         trust_remote_code=True,
-        #         attn_implementation="sdpa",
-        #         torch_dtype=torch.bfloat16,
-        #         init_audio=False,
-        #         # init_tts=False,
-        #         init_vision=False,
-        #     )
-        #     device_map = infer_auto_device_map(
-        #         model,
-        #         # max_memory={0: "10GB", 1: "10GB"},
-        #         no_split_module_classes=[
-        #             "SiglipVisionTransformer",
-        #             "Qwen2DecoderLayer",
-        #         ],
-        #     )
-        #     # device_id = device_map["llm.model.embed_tokens"]
-        #     # device_map[
-        #     #     "llm.lm_head"
-        #     # ] = device_id  # firtt and last layer should be in same device
-        #     # # device_map["vpm"] = device_id
-        #     # device_map["tts"] = device_id
-        #     # device_map["resampler"] = device_id
-        #     # device_id2 = device_map["llm.model.layers.26"]
-        #     # device_map["llm.model.layers.8"] = device_id2
-        #     # device_map["llm.model.layers.9"] = device_id2
-        #     # device_map["llm.model.layers.10"] = device_id2
-        #     # device_map["llm.model.layers.11"] = device_id2
-        #     # device_map["llm.model.layers.12"] = device_id2
-        #     # device_map["llm.model.layers.13"] = device_id2
-        #     # device_map["llm.model.layers.14"] = device_id2
-        #     # device_map["llm.model.layers.15"] = device_id2
-        #     # device_map["llm.model.layers.16"] = device_id2
-        #     # print(device_map)
-
-        # model = load_checkpoint_and_dispatch(
-        #     model, "openbmb/MiniCPM-o-2_6", dtype=torch.bfloat16, device_map=device_map
-        # )
-        # tokenizer = AutoTokenizer.from_pretrained(
-        #     "openbmb/MiniCPM-o-2_6", trust_remote_code=True
-        # )
-        # model.eval()
-
-        # self.model = (
-        #     AutoModel.from_pretrained(
-        #         "openbmb/MiniCPM-o-2_6",
-        #         trust_remote_code=True,
-        #         attn_implementation="sdpa",
-        #         # attn_implementation="flash_attention_2",
-        #         torch_dtype=torch.bfloat16,
-        #         revision=model_revision,
-        #         # quantization_config=quant_conf,
-        #         low_cpu_mem_usage=True,
-        #         device_map=device,
-        #         init_vision=False,
-        #         init_audio=False,
-        #     ).eval()
-        #     # .to(device)
-        # )
         print("model initialize")
-        # model = AutoGPTQForCausalLM.from_quantized(
-        #     "openbmb/MiniCPM-o-2_6-int4",
-        #     torch_dtype=torch.bfloat16,
-        #     device=device,
-        #     trust_remote_code=True,
-        #     disable_exllama=True,
-        #     disable_exllamav2=True,
-        # )
         self.model = AutoGPTQForCausalLM.from_quantized(
             "openbmb/MiniCPM-o-2_6-int4",
             torch_dtype=torch.bfloat16,
@@ -153,9 +83,6 @@ class MiniCPMo:
             fullgraph=True,
         )
 
-        # self._tokenizer = AutoTokenizer.from_pretrained(
-        #     "openbmb/MiniCPM-o-2_6", trust_remote_code=True, revision=model_revision
-        # )
         self._tokenizer = AutoTokenizer.from_pretrained(
             "openbmb/MiniCPM-o-2_6-int4",
             trust_remote_code=True,  # , revision=model_revision
@@ -198,40 +125,6 @@ class MiniCPMo:
             )
 
     def _prefill(self, data: List[str | AudioData]):
-        # try:
-        #     audio_arrays = []
-        #     for prefill_data in data:
-        #         if isinstance(prefill_data, str):
-        #             text = prefill_data
-        #             audio = None
-        #         elif isinstance(prefill_data, AudioData):
-        #             text = None
-        #             audio = prefill_data.array
-        #         else:
-        #             raise ValueError(
-        #                 f"._prefill(): prefill_data must be a string or AudioData"
-        #             )
-
-        #         if text:
-        #             self.model.streaming_prefill(
-        #                 session_id=self.session_id,
-        #                 msgs=[{"role": "user", "content": [text]}],
-        #                 tokenizer=self._tokenizer,
-        #             )
-
-        #         if audio is not None:
-        #             audio_tensor = torch.from_numpy(audio).to(self.device).float()
-        #             resampled_audio = self.resampler(audio_tensor).cpu().numpy()
-        #             # resampled_audio = librosa.resample(audio, audio.sample_rate, 24000)
-
-        #             self._prefill_audio(
-        #                 audio_arrays=[resampled_audio],
-        #             )
-
-        # except Exception as e:
-        #     print(f"_prefill() error: {e}")
-        #     raise e
-
         try:
             audio_queue = []
             for prefill_data in data:
