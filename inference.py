@@ -21,6 +21,7 @@ minicpm_inference_engine_image = (
         f"nvidia/cuda:12.4.0-devel-ubuntu22.04", add_python="3.11"
     )
     .apt_install("git")
+    .run_commands("pip install --upgrade pip")
     # Install flash-attn dependencies
     .pip_install(  # required to build flash-attn
         "ninja==1.11.1.3",
