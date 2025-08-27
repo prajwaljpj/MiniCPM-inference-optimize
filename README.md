@@ -67,7 +67,7 @@ This took me sometime but I got an opportunity to learn the internal workings of
 # Things to explore
 
 1. Quantize with BitsAndBytes - 8 bit might lead to better quality
-2. LLama.cpp/Onnx for stage 1 (LLM infer) with streaming TTS
+2. Onnx for stage 1 (LLM infer) with streaming TTS
 3. Reduce the output token size of the first inference pass (only) 
 4. Output Caching.
 5. CPU reconstruction of MelSpectrogram (griffin_lim)
