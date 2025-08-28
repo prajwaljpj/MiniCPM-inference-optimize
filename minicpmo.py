@@ -112,7 +112,6 @@ class MiniCPMo:
             disable_exllama=True,
             disable_exllamav2=True,
             init_vision=False,
-            init_audio=False,
         ).eval()
 
         self.model = torch.compile(
@@ -140,7 +139,7 @@ class MiniCPMo:
 
         self.session_id = str(uuid.uuid4())
         warmup_audio = np.random.normal(
-            loc=0, scale=0.05, size=INPUT_OUTPUT_AUDIO_SAMPLE_RATE * 2
+            loc=0, scale=0.05, size=INPUT_OUTPUT_AUDIO_SAMPLE_RATE * 5
         )
         self._prefill_audio(audio_arrays=[warmup_audio])
 
