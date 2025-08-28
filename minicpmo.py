@@ -76,37 +76,37 @@ class MiniCPMo:
                 revision=model_revision,
                 # init_audio=False,
                 # init_tts=False,
-                init_vision=False,
+                # init_vision=False,
             )
             .eval()
             .cuda()
         )
-        #     device_map = infer_auto_device_map(
-        #         self.model,
-        #         # max_memory={0: "10GB", 1: "10GB"},
-        #         no_split_module_classes=[
-        #             "SiglipVisionTransformer",
-        #             "Qwen2DecoderLayer",
-        #         ],
-        #     )
-        #     print("\n\n\n\n\n\n", device_map, "\n\n\n\n\n\n")
-        #     device_id = device_map["llm.model.embed_tokens"]
-        #     device_map[
-        #         "llm.lm_head"
-        #     ] = device_id  # firtt and last layer should be in same device
-        #     # device_map["vpm"] = device_id
-        #     device_map["tts"] = device_id
-        #     # device_map["resampler"] = device_id
-        #     device_id2 = device_map["llm.model.layers.26"]
-        #     device_map["llm.model.layers.8"] = device_id2
-        #     device_map["llm.model.layers.9"] = device_id2
-        #     device_map["llm.model.layers.10"] = device_id2
-        #     device_map["llm.model.layers.11"] = device_id2
-        #     device_map["llm.model.layers.12"] = device_id2
-        #     device_map["llm.model.layers.13"] = device_id2
-        #     device_map["llm.model.layers.14"] = device_id2
-        #     device_map["llm.model.layers.15"] = device_id2
-        #     device_map["llm.model.layers.16"] = device_id2
+        # device_map = infer_auto_device_map(
+        #     self.model,
+        #     max_memory={0: "10GB", 1: "10GB"},
+        #     no_split_module_classes=[
+        #         "SiglipVisionTransformer",
+        #         "Qwen2DecoderLayer",
+        #     ],
+        # )
+        # print("\n\n\n\n\n\n", device_map, "\n\n\n\n\n\n")
+        # device_id = device_map["llm.model.embed_tokens"]
+        # device_map[
+        #     "llm.lm_head"
+        # ] = device_id  # firtt and last layer should be in same device
+        # # device_map["vpm"] = device_id
+        # device_map["tts"] = device_id
+        # # device_map["resampler"] = device_id
+        # device_id2 = device_map["llm.model.layers.26"]
+        # device_map["llm.model.layers.8"] = device_id2
+        # device_map["llm.model.layers.9"] = device_id2
+        # device_map["llm.model.layers.10"] = device_id2
+        # device_map["llm.model.layers.11"] = device_id2
+        # device_map["llm.model.layers.12"] = device_id2
+        # device_map["llm.model.layers.13"] = device_id2
+        # device_map["llm.model.layers.14"] = device_id2
+        # device_map["llm.model.layers.15"] = device_id2
+        # device_map["llm.model.layers.16"] = device_id2
 
         print("model initialize")
 
@@ -134,7 +134,7 @@ class MiniCPMo:
             "openbmb/MiniCPM-o-2_6-int4",
             trust_remote_code=True,  # , revision=model_revision
             device=self.device,
-        ).cuda()
+        )
         print("tokenizer initialize")
 
         # self._tokenizer = torch.compile(
@@ -147,11 +147,11 @@ class MiniCPMo:
         self._generate_audio = True
         print("✅ MiniCPMo initialized")
 
-        self.session_id = str(uuid.uuid4())
-        warmup_audio = np.random.normal(
-            loc=0, scale=0.05, size=INPUT_OUTPUT_AUDIO_SAMPLE_RATE * 5
-        )
-        self._prefill_audio(audio_arrays=[warmup_audio])
+        # self.session_id = str(uuid.uuid4())
+        # warmup_audio = np.random.normal(
+        #     loc=0, scale=0.05, size=INPUT_OUTPUT_AUDIO_SAMPLE_RATE * 5
+        # )
+        # self._prefill_audio(audio_arrays=[warmup_audio])
 
     def init_tts(self):
         self.model.init_tts()
@@ -196,7 +196,9 @@ class MiniCPMo:
                     # )
                     # resampled_audio = self.resampler(audio_tensor).cpu().numpy()
                     resampled_audio = librosa.resample(
-                        prefill_data.array, prefill_data.sample_rate, 24000
+                        prefill_data.array,
+                        orig_sr=prefill_data.sample_rate,
+                        target_sr=16000,
                     )
                     audio_queue.append(resampled_audio)
                 else:
@@ -213,7 +215,15 @@ class MiniCPMo:
 
         try:
             self.session_id = str(uuid.uuid4())
-            self._prefill(data=[prefill_data])
+
+            warmup_audio = AudioData(
+                array=np.random.normal(
+                    loc=0, scale=0.05, size=INPUT_OUTPUT_AUDIO_SAMPLE_RATE * 2
+                ),
+                sample_rate=INPUT_OUTPUT_AUDIO_SAMPLE_RATE,
+            )
+
+            self._prefill(data=[prefill_data, warmup_audio])
 
             # with torch.amp.autocast(self.device):
             response_generator = self.model.streaming_generate(
@@ -223,6 +233,7 @@ class MiniCPMo:
                 generate_audio=self._generate_audio,
                 use_cache=True,  # check if model has KV cache
                 sampling=True,  # doc says faster inferencing
+                max_new_tokens=25,
             )
 
             for response in response_generator:
