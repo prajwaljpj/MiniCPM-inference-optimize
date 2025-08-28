@@ -66,15 +66,21 @@ class MiniCPMo:
         # )
 
         # with init_empty_weights():
-        #     self.model = AutoModel.from_pretrained(
-        #         "openbmb/MiniCPM-o-2_6",
-        #         trust_remote_code=True,
-        #         attn_implementation="sdpa",
-        #         torch_dtype=torch.bfloat16,
-        #         init_audio=False,
-        #         # init_tts=False,
-        #         init_vision=False,
-        #     )
+        self.model = (
+            AutoModel.from_pretrained(
+                "openbmb/MiniCPM-o-2_6",
+                trust_remote_code=True,
+                attn_implementation="sdpa",
+                torch_dtype=torch.bfloat16,
+                low_cpu_mem_usage=True,
+                revision=model_revision,
+                # init_audio=False,
+                # init_tts=False,
+                init_vision=False,
+            )
+            .eval()
+            .cuda()
+        )
         #     device_map = infer_auto_device_map(
         #         self.model,
         #         # max_memory={0: "10GB", 1: "10GB"},
@@ -104,15 +110,19 @@ class MiniCPMo:
 
         print("model initialize")
 
-        self.model = AutoGPTQForCausalLM.from_quantized(
-            "openbmb/MiniCPM-o-2_6-int4",
-            torch_dtype=torch.bfloat16,
-            device=self.device + ":0",
-            trust_remote_code=True,
-            disable_exllama=True,
-            disable_exllamav2=True,
-            init_vision=False,
-        ).eval()
+        # self.model = (
+        #     AutoGPTQForCausalLM.from_quantized(
+        #         "openbmb/MiniCPM-o-2_6-int4",
+        #         torch_dtype=torch.float16,
+        #         # device=self.device + ":0",
+        #         trust_remote_code=True,
+        #         disable_exllama=True,
+        #         disable_exllamav2=False,
+        #         init_vision=False,
+        #     )
+        #     .eval()
+        #     .cuda()
+        # )
 
         self.model = torch.compile(
             self.model,
@@ -124,11 +134,11 @@ class MiniCPMo:
             "openbmb/MiniCPM-o-2_6-int4",
             trust_remote_code=True,  # , revision=model_revision
             device=self.device,
-        )
+        ).cuda()
         print("tokenizer initialize")
 
         # self._tokenizer = torch.compile(
-        #     self._tokenizer, mode="max-autotune", fullgraph=True
+        #     self._tokenizer, mode="max-autotune"  # , fullgraph=True
         # )
 
         if device == "cuda":
@@ -198,58 +208,57 @@ class MiniCPMo:
             print(f"_prefill() error: {e}")
             raise e
 
-    def run_inference(self, prefill_data: List[str | AudioData]):
+    def run_inference(self, prefill_data: Union[str, AudioData]):
         print("MiniCPMo _run_inference() function called")
 
         try:
-            for data in prefill_data:
-                self.session_id = str(uuid.uuid4())
-                self._prefill(data=[data])
+            self.session_id = str(uuid.uuid4())
+            self._prefill(data=[prefill_data])
 
-                # with torch.amp.autocast(self.device):
-                response_generator = self.model.streaming_generate(
-                    session_id=self.session_id,
-                    tokenizer=self._tokenizer,
-                    temperature=0.1,
-                    generate_audio=self._generate_audio,
-                    use_cache=True,  # check if model has KV cache
-                    sampling=True,  # doc says faster inferencing
-                )
+            # with torch.amp.autocast(self.device):
+            response_generator = self.model.streaming_generate(
+                session_id=self.session_id,
+                tokenizer=self._tokenizer,
+                temperature=0.1,
+                generate_audio=self._generate_audio,
+                use_cache=True,  # check if model has KV cache
+                sampling=True,  # doc says faster inferencing
+            )
 
-                for response in response_generator:
-                    audio = None
-                    sample_rate = INPUT_OUTPUT_AUDIO_SAMPLE_RATE
-                    text = None
+            for response in response_generator:
+                audio = None
+                sample_rate = INPUT_OUTPUT_AUDIO_SAMPLE_RATE
+                text = None
 
-                    # extract audio from response
-                    if hasattr(response, "audio_wav"):
-                        has_audio = True
-                        sample_rate = getattr(
-                            response, "sampling_rate", INPUT_OUTPUT_AUDIO_SAMPLE_RATE
-                        )
-                        audio = response.audio_wav.cpu().detach().numpy()
+                # extract audio from response
+                if hasattr(response, "audio_wav"):
+                    has_audio = True
+                    sample_rate = getattr(
+                        response, "sampling_rate", INPUT_OUTPUT_AUDIO_SAMPLE_RATE
+                    )
+                    audio = response.audio_wav.cpu().detach().numpy()
 
-                    # check for text
-                    if isinstance(response, dict):
-                        text = response.get("text")
-                    elif hasattr(response, "text"):
-                        text = response.text
+                # check for text
+                if isinstance(response, dict):
+                    text = response.get("text")
+                elif hasattr(response, "text"):
+                    text = response.text
 
-                    # put audio in output queue
-                    if audio is not None:
-                        audio_data = AudioData(
-                            array=audio,
-                            sample_rate=sample_rate,
-                        )
+                # put audio in output queue
+                if audio is not None:
+                    audio_data = AudioData(
+                        array=audio,
+                        sample_rate=sample_rate,
+                    )
 
-                        yield audio_data
+                    yield audio_data
 
-                    # put text in output queue
-                    if isinstance(text, str) and text:
-                        has_text = True
-                        yield text
+                # put text in output queue
+                if isinstance(text, str) and text:
+                    has_text = True
+                    yield text
 
-                yield EndOfResponse()
+            yield EndOfResponse()
 
         except Exception as e:
             print(f"_run_inference() error: {e}")

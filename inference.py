@@ -59,15 +59,11 @@ minicpm_inference_engine_image = (
         gpu="A10G",
     )
     .run_commands(
-        "pip install --upgrade flash_attn==2.8.0.post2", gpu="A10G"
+        "pip install --upgrade flash_attn==2.5.8", gpu="A10G"
     )  # add flash-attn
     .pip_install("accelerate==1.2.1", gpu="A10G")
     .pip_install("bitsandbytes==0.45.3", gpu="A10G")
     # .pip_install("bitsandbytes==0.47.0", gpu="A10G")
-    .run_commands(
-        "python -c \"import torch; import transformers; import accelerate; import bitsandbytes; print(f'\\n==== Library Versions ===='); print(f'PyTorch: {torch.__version__}'); print(f'Transformers: {transformers.__version__}'); print(f'Accelerate: {accelerate.__version__}'); print(f'BitsAndBytes: {bitsandbytes.__version__}'); print('\\n==== CUDA Info ===='); print(f'CUDA is available: {torch.cuda.is_available()}'); print(f'CUDA version: {torch.version.cuda}'); print('\\n==== BitsAndBytes Test Output ====');\"",
-        gpu="A10G",
-    )
     .run_commands('python -c "import torch; print(torch.version.cuda)"')
     # .run_commands("accelerate config default")
     # .run_commands("accelerate env")
@@ -135,46 +131,33 @@ class MinicpmInferenceEngine:
         self.model.init_tts()
 
     @modal.method()
-    def run(self, texts: List[str]):
-        all_results = []
+    def run(self, text: str):
         audio_data = []
         start_time = time.perf_counter()
         time_to_first_byte = None
-        text_index = 0
 
-        # A single call to the generator for the whole batch
-        item_generator = self.model.run_inference(texts)
+        # Generator for a single text
+        item_generator = self.model.run_inference(text)
 
         for item in item_generator:
             if isinstance(item, EndOfResponse):
-                # We've reached the end of a response for one text
-                total_time = time.perf_counter() - start_time
-                full_audio = np.concatenate(audio_data) if audio_data else np.array([])
+                break
 
-                all_results.append(
-                    {
-                        "time_to_first_byte": time_to_first_byte,
-                        "total_time": total_time,
-                        "audio_array": full_audio,
-                        "sample_rate": 24000,
-                        "text": texts[text_index],
-                    }
-                )
-
-                # Reset for the next text in the batch
-                audio_data = []
-                start_time = time.perf_counter()
-                time_to_first_byte = None
-                text_index += 1
-                continue
-
-            # Process audio and text items as before
             if isinstance(item, AudioData):
                 if time_to_first_byte is None:
                     time_to_first_byte = time.perf_counter() - start_time
                 audio_data.append(item.array)
 
-        return all_results
+        total_time = time.perf_counter() - start_time
+        full_audio = np.concatenate(audio_data) if audio_data else np.array([])
+
+        return {
+            "time_to_first_byte": time_to_first_byte,
+            "total_time": total_time,
+            "audio_array": full_audio,
+            "sample_rate": 24000,
+            "text": text,
+        }
 
 
 @app.local_entrypoint()
@@ -183,7 +166,7 @@ def main():
     engine = MinicpmInferenceEngine()
     print("start")
     # Warmup
-    result = engine.run.remote(["Hi, how are you?"])
+    engine.run.remote("Hi, how are you?")
 
     results = []
     texts = [
@@ -194,7 +177,8 @@ def main():
         "My favorite color is blue",
         "What's your favorite food?",
     ]
-    results = engine.run.remote(texts)
+    for result in engine.run.map(texts):
+        results.append(result)
 
     PARENT_DIR = Path(__file__).parent
 
@@ -208,12 +192,14 @@ def main():
             f"Wrote {result['text']}.wav to {PARENT_DIR / 'outputs' / INF_TYPE / result['text']}.wav"
         )
 
-    print(
-        f"Time to first byte: {np.mean([result['time_to_first_byte'] for result in results])}"
-    )
-    print(
-        f"Realtime Factor: {np.mean([result['total_time'] / (len(result['audio_array']) / result['sample_rate']) for result in results])}"
-    )
+    ttfb_results = [r['time_to_first_byte'] for r in results if r['time_to_first_byte'] is not None]
+    if ttfb_results:
+        print(f"Time to first byte: {np.mean(ttfb_results)}")
+
+    rtf_results = [r['total_time'] / (len(r['audio_array']) / r['sample_rate']) for r in results if len(r['audio_array']) > 0]
+    if rtf_results:
+        print(f"Realtime Factor: {np.mean(rtf_results)}")
+
     now = datetime.now()
     result_fn = (
         PARENT_DIR
@@ -224,11 +210,19 @@ def main():
     with open(result_fn, "w+") as f:
         f.write(f"Results from run at {now.strftime('%Y-%m-%d %H:%M:%S')}\n")
         for i, result in enumerate(results):
-            rtf = result["total_time"] / (
-                len(result["audio_array"]) / result["sample_rate"]
-            )
+            if len(result['audio_array']) > 0:
+                rtf = result["total_time"] / (
+                    len(result["audio_array"]) / result["sample_rate"]
+                )
+            else:
+                rtf = 0
+            
             f.write(f"Result {i+1}: {result['text']}\n")
-            f.write(f"-Time to first byte: {result['time_to_first_byte']:.4f}s\n")
+            ttfb = result['time_to_first_byte']
+            if ttfb is not None:
+                f.write(f"-Time to first byte: {ttfb:.4f}s\n")
+            else:
+                f.write(f"-Time to first byte: N/A\n")
             f.write(f"-Realtime Factor: {rtf:.4f}x\n")
             f.write(f"-Total time: {result['total_time']:.4f}s\n")
             f.write(
