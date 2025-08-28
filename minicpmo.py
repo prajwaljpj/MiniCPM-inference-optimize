@@ -65,7 +65,45 @@ class MiniCPMo:
         #     llm_int8_threshold=6.0,  # Outlier threshold in the llm.int8() algorithm, used to determine whether to perform quantization
         # )
 
+        # with init_empty_weights():
+        #     self.model = AutoModel.from_pretrained(
+        #         "openbmb/MiniCPM-o-2_6",
+        #         trust_remote_code=True,
+        #         attn_implementation="sdpa",
+        #         torch_dtype=torch.bfloat16,
+        #         init_audio=False,
+        #         # init_tts=False,
+        #         init_vision=False,
+        #     )
+        #     device_map = infer_auto_device_map(
+        #         self.model,
+        #         # max_memory={0: "10GB", 1: "10GB"},
+        #         no_split_module_classes=[
+        #             "SiglipVisionTransformer",
+        #             "Qwen2DecoderLayer",
+        #         ],
+        #     )
+        #     print("\n\n\n\n\n\n", device_map, "\n\n\n\n\n\n")
+        #     device_id = device_map["llm.model.embed_tokens"]
+        #     device_map[
+        #         "llm.lm_head"
+        #     ] = device_id  # firtt and last layer should be in same device
+        #     # device_map["vpm"] = device_id
+        #     device_map["tts"] = device_id
+        #     # device_map["resampler"] = device_id
+        #     device_id2 = device_map["llm.model.layers.26"]
+        #     device_map["llm.model.layers.8"] = device_id2
+        #     device_map["llm.model.layers.9"] = device_id2
+        #     device_map["llm.model.layers.10"] = device_id2
+        #     device_map["llm.model.layers.11"] = device_id2
+        #     device_map["llm.model.layers.12"] = device_id2
+        #     device_map["llm.model.layers.13"] = device_id2
+        #     device_map["llm.model.layers.14"] = device_id2
+        #     device_map["llm.model.layers.15"] = device_id2
+        #     device_map["llm.model.layers.16"] = device_id2
+
         print("model initialize")
+
         self.model = AutoGPTQForCausalLM.from_quantized(
             "openbmb/MiniCPM-o-2_6-int4",
             torch_dtype=torch.bfloat16,
@@ -75,7 +113,7 @@ class MiniCPMo:
             disable_exllamav2=True,
             init_vision=False,
             init_audio=False,
-        )
+        ).eval()
 
         self.model = torch.compile(
             self.model,
@@ -86,6 +124,7 @@ class MiniCPMo:
         self._tokenizer = AutoTokenizer.from_pretrained(
             "openbmb/MiniCPM-o-2_6-int4",
             trust_remote_code=True,  # , revision=model_revision
+            device=self.device,
         )
         print("tokenizer initialize")
 
@@ -93,13 +132,17 @@ class MiniCPMo:
         #     self._tokenizer, mode="max-autotune", fullgraph=True
         # )
 
-        self.resampler = Resample(new_freq=24000).to(self.device)
-
         if device == "cuda":
             self.init_tts()
 
         self._generate_audio = True
         print("✅ MiniCPMo initialized")
+
+        self.session_id = str(uuid.uuid4())
+        warmup_audio = np.random.normal(
+            loc=0, scale=0.05, size=INPUT_OUTPUT_AUDIO_SAMPLE_RATE * 2
+        )
+        self._prefill_audio(audio_arrays=[warmup_audio])
 
     def init_tts(self):
         self.model.init_tts()
@@ -112,7 +155,7 @@ class MiniCPMo:
         audio_samples = np.concatenate(audio_arrays)
         print(f"prefilling audio with {audio_samples.shape} samples")
 
-        chunk_size = INPUT_OUTPUT_AUDIO_SAMPLE_RATE
+        chunk_size = INPUT_OUTPUT_AUDIO_SAMPLE_RATE * 5
         for chunk_start in range(0, len(audio_samples), chunk_size):
             chunk = audio_samples[chunk_start : chunk_start + chunk_size]
 
@@ -139,10 +182,13 @@ class MiniCPMo:
                         tokenizer=self._tokenizer,
                     )
                 elif isinstance(prefill_data, AudioData):
-                    audio_tensor = (
-                        torch.from_numpy(prefill_data.array).to(self.device).float()
+                    # audio_tensor = (
+                    #     torch.from_numpy(prefill_data.array).to(self.device).float()
+                    # )
+                    # resampled_audio = self.resampler(audio_tensor).cpu().numpy()
+                    resampled_audio = librosa.resample(
+                        prefill_data.array, prefill_data.sample_rate, 24000
                     )
-                    resampled_audio = self.resampler(audio_tensor).cpu().numpy()
                     audio_queue.append(resampled_audio)
                 else:
                     raise ValueError(
