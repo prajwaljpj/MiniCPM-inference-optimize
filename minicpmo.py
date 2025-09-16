@@ -66,21 +66,21 @@ class MiniCPMo:
         # )
 
         # with init_empty_weights():
-        self.model = (
-            AutoModel.from_pretrained(
-                "openbmb/MiniCPM-o-2_6",
-                trust_remote_code=True,
-                attn_implementation="sdpa",
-                torch_dtype=torch.bfloat16,
-                low_cpu_mem_usage=True,
-                revision=model_revision,
-                # init_audio=False,
-                # init_tts=False,
-                # init_vision=False,
-            )
-            .eval()
-            .cuda()
-        )
+        # self.model = (
+        #     AutoModel.from_pretrained(
+        #         "openbmb/MiniCPM-o-2_6",
+        #         trust_remote_code=True,
+        #         attn_implementation="sdpa",
+        #         torch_dtype=torch.bfloat16,
+        #         low_cpu_mem_usage=True,
+        #         revision=model_revision,
+        #         # init_audio=False,
+        #         # init_tts=False,
+        #         # init_vision=False,
+        #     )
+        #     .eval()
+        #     .cuda()
+        # )
         # device_map = infer_auto_device_map(
         #     self.model,
         #     max_memory={0: "10GB", 1: "10GB"},
@@ -110,19 +110,19 @@ class MiniCPMo:
 
         print("model initialize")
 
-        # self.model = (
-        #     AutoGPTQForCausalLM.from_quantized(
-        #         "openbmb/MiniCPM-o-2_6-int4",
-        #         torch_dtype=torch.float16,
-        #         # device=self.device + ":0",
-        #         trust_remote_code=True,
-        #         disable_exllama=True,
-        #         disable_exllamav2=False,
-        #         init_vision=False,
-        #     )
-        #     .eval()
-        #     .cuda()
-        # )
+        self.model = (
+            AutoGPTQForCausalLM.from_quantized(
+                "openbmb/MiniCPM-o-2_6-int4",
+                torch_dtype=torch.float16,
+                # device=self.device + ":0",
+                trust_remote_code=True,
+                disable_exllama=True,
+                disable_exllamav2=False,
+                init_vision=False,
+            )
+            .eval()
+            .cuda()
+        )
 
         self.model = torch.compile(
             self.model,

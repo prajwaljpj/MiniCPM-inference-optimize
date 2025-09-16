@@ -192,11 +192,17 @@ def main():
             f"Wrote {result['text']}.wav to {PARENT_DIR / 'outputs' / INF_TYPE / result['text']}.wav"
         )
 
-    ttfb_results = [r['time_to_first_byte'] for r in results if r['time_to_first_byte'] is not None]
+    ttfb_results = [
+        r["time_to_first_byte"] for r in results if r["time_to_first_byte"] is not None
+    ]
     if ttfb_results:
         print(f"Time to first byte: {np.mean(ttfb_results)}")
 
-    rtf_results = [r['total_time'] / (len(r['audio_array']) / r['sample_rate']) for r in results if len(r['audio_array']) > 0]
+    rtf_results = [
+        r["total_time"] / (len(r["audio_array"]) / r["sample_rate"])
+        for r in results
+        if len(r["audio_array"]) > 0
+    ]
     if rtf_results:
         print(f"Realtime Factor: {np.mean(rtf_results)}")
 
@@ -210,15 +216,15 @@ def main():
     with open(result_fn, "w+") as f:
         f.write(f"Results from run at {now.strftime('%Y-%m-%d %H:%M:%S')}\n")
         for i, result in enumerate(results):
-            if len(result['audio_array']) > 0:
+            if len(result["audio_array"]) > 0:
                 rtf = result["total_time"] / (
                     len(result["audio_array"]) / result["sample_rate"]
                 )
             else:
                 rtf = 0
-            
+
             f.write(f"Result {i+1}: {result['text']}\n")
-            ttfb = result['time_to_first_byte']
+            ttfb = result["time_to_first_byte"]
             if ttfb is not None:
                 f.write(f"-Time to first byte: {ttfb:.4f}s\n")
             else:
